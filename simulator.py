@@ -1,18 +1,7 @@
 import numpy as np
+from microprocessor import CPU, Instruction
 
 
+MEM_SIZE = 65536
+NUM_REGISTERS = 16
 
-def fetch():
-    pass
-def decode():
-    pass
-def execute():
-    pass
-
-instruction_dict = {"NOOP"  : [0, 0, 0, 0],
-                    "ADD"   : [0, 0, 0, 1],
-                    "ADDI"  : [0, 0, 1, 0],
-                    ""}
-
-instruction = np.zeros(32, dtype=int)
-mem = np.empty(1000)
