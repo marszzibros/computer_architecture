@@ -8,19 +8,6 @@ class Instruction:
         self.Rs2 = Rs2
         self.immed = immed
 
-        # Assign constant values to represent opcodes
-        self.opcode_dict = {"NOOP"  : 0,    
-                            "ADD"   : 1,   
-                            "ADDI"  : 2,    
-                            "BEQ"   : 3,
-                            "JAL"   : 4,
-                            "LW"    : 5,
-                            "SW"    : 6,
-                            "RETURN": 7}
-
-
-    def instruction(self):
-        pass
 
 class CPU:
     def __init__(self, pc, next_pc, memory, registers):
@@ -38,9 +25,39 @@ class CPU:
 
         return instruction
     
-    def decode(self,):
-        pass
-    def execute(self,):
-        pass
+    def decode(self, instruction):
+
+        # Decode values from an instruction
+        opcode = (instruction >> 28) & 15
+        Rd = (instruction >> 24) & 15
+        Rs1 = (instruction >> 20) & 15
+        Rs2 = (instruction >> 16) & 15
+        immed = instruction & 15
+        
+        # create an instance of Instruction
+        return Instruction(opcode, Rd, Rs1, Rs2, immed)
+    
+    def execute(self, instruction):
+        if instruction.opcode == 0:
+            pass 
+        elif instruction.opcode == 1:
+            self.registers[instruction.Rd] = self.registers[instruction.Rs1] + self.registers[instruction.Rs2]
+        elif instruction.opcode == 2:
+            self.registers[instruction.Rd] = self.registers[instruction.Rs1]
+        elif instruction.opcode == 3:
+            if self.registers[instruction.Rs1] == self.registers[instruction.Rs2]:
+                self.next_pc = self.pc + instruction.immed
+            else:
+                pass
+        elif instruction.opcode == 4:
+            pass
+        elif instruction.opcode == 5:
+            pass
+        elif instruction.opcode == 6:
+            pass
+        elif instruction.opcode == 7:
+            pass
+        else:
+            print("Invalid opcode")
 
     
