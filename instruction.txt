@@ -1,11 +1,9 @@
-NOOP 
-ADDI R1, R0, 8
-ADDI R2, R0, 7
-ADD R3, R1, R1
-ADD R4, R2, R2
-BEQ R3, R4, 3
-ADDI R8, R0, 10
-JAL R0, 2
-ADDI R8, R0, 1000
-SW R2, 16(R8)
-LW R5, 16(R8)
+noop #Do Nothing
+addi R1, R0, 0 #Set R1 as 0 (sum)
+addi R2, R0, 6 #Set R2 as 6 (count)
+addi R3, R0, 0 #Set R3 as 0 (i)
+beq R3, R2, 4 #check if i == count, if so, go to "return"
+add R1, R1, R3 #add R1 and R3 and save it in R1 (sum=sum+i)
+addi R3, R3, 1 #R3 + 1 and save it in R3 (++i)
+JAL R0, -3 # go to beq statement stored in pc - 3 (i < count)
+return

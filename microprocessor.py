@@ -1,3 +1,9 @@
+# Jay Hwasung Jung (jjung2)
+# Computer Architecture
+
+# microprocessor.py
+# Instruction and CPU classes
+
 import numpy as np
 
 class Instruction:
@@ -28,12 +34,18 @@ class CPU:
     def decode(self, instruction):
 
         # Decode values from an instruction
+
         opcode = (instruction >> 28) & 15
         Rd = (instruction >> 24) & 15
         Rs1 = (instruction >> 20) & 15
         Rs2 = (instruction >> 16) & 15
         immed = instruction & 31
         
+        # AND operator with 16 (10000) to check if the number is negative
+        if immed & 16:
+            # signed integer
+            immed = - (2**5 - immed)
+
         # create an instance of Instruction
         return Instruction(opcode, Rd, Rs1, Rs2, immed)
     
