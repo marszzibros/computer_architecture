@@ -1,9 +1,0 @@
-noop #Do Nothing
-addi R1, R0, 0 #Set R1 as 0 (sum)
-addi R2, R0, 6 #Set R2 as 6 (count)
-addi R3, R0, 0 #Set R3 as 0 (i)
-beq R3, R2, 4 #check if i == count, if so, go to "return"
-add R1, R1, R3 #add R1 and R3 and save it in R1 (sum=sum+i)
-addi R3, R3, 1 #R3 + 1 and save it in R3 (++i)
-JAL R0, -3 # go to beq statement stored in pc - 3 (i < count)
-return
