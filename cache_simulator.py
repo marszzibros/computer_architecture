@@ -1,18 +1,12 @@
 import numpy as np
 import math
+
 from collections import deque
+from enum import Enum, auto
 
-
-BITS_PER_BYTE = 8
-WORD_BYTES = 4
-MEM_SIZE = 64000
-CACHE_BLOCKS = 2 ** 10
-CACHE_PER_BLOCK = 2 ** 6
-NUM_BLOCKS = CACHE_BLOCKS // CACHE_PER_BLOCK
-
-# Since it is direct-mapped cache 
-NUM_WAYS = 1
-NUM_SETS  = NUM_BLOCKS // NUM_WAYS
+class AccessType(Enum):
+    READ:str = "read"
+    WRITE:str = "write"
 
 class CacheBlock:
     def __init__(self, size):
@@ -21,8 +15,14 @@ class CacheBlock:
 
         # data block bytearray
         self.block = bytearray(size)
+        
+        # dirty - False, clean - True
+        self.dirty_flag = False
 
-class DMCache:
+        # invalid - False, valid - True
+        self.valid_flag = False
+
+class Cache:
     def __init__(self, mem_size = 64000, word_bytes = 4, k = 1, cache_size = 2 ** 10, block_size = 2 ** 6, address_size = 16, file_name = "part-one-test.out"):
         self.file_name = file_name
         self.memory = np.zeros(mem_size, dtype=np.uint8)
@@ -41,11 +41,11 @@ class DMCache:
             self.memory[i] = i % self.alignment
 
         # data structures
-        self.num_blocks_per_set = k
+        self.associativity = k
         self.cache_size = cache_size
         self.block_size = block_size
 
-        self.num_sets = (self.cache_size // (self.block_size * self.num_blocks_per_set))
+        self.num_sets = (self.cache_size // (self.block_size * self.associativity))
 
         # cache bits calculation
         self.index_bits = int(math.log2(self.num_sets))
@@ -53,8 +53,8 @@ class DMCache:
         self.tag_bits = self.address_size - self.index_bits - self.block_offset_bits
 
         # assign cache
-        self.cache = [[CacheBlock(self.block_size) for _ in range(self.num_blocks_per_set)] for _ in range(self.num_sets)]
-        self.lru = [deque() for _ in range(self.num_sets)] 
+        self.cache = [[CacheBlock(self.block_size) for _ in range(self.associativity)] for _ in range(self.num_sets)]
+        self.lru = [deque([-1] * self.associativity) for _ in range(self.num_sets)]
 
         with open(self.file_name, "a") as out:  
             out.write("-----------------------------------------\n")
@@ -62,7 +62,7 @@ class DMCache:
             out.write(f"block size = {self.block_size}\n")                         
             out.write(f"#blocks = {self.cache_size // self.block_size}\n")
             out.write(f"#sets = {self.num_sets}\n")
-            out.write(f"associativity = {self.num_blocks_per_set}\n")
+            out.write(f"associativity = {self.associativity}\n")
             out.write(f"tag length = {self.tag_bits}\n")
             out.write("-----------------------------------------\n\n")         
 
@@ -76,8 +76,13 @@ class DMCache:
 
         return [tag, index, block_offset]
     
-    def read_word(self, A):
-        tag, index, block_offset = self.decode_address(A)
+    def access_memory(self, address, word, access_type):
+
+        hit = False
+        miss_have_space = False
+        miss_no_space = False
+
+        tag, index, block_offset = self.decode_address(address)
 
         # collect cache
         cache_set = self.cache[index]
@@ -93,60 +98,89 @@ class DMCache:
                 break
         
         # Calculating upper and lower bound of the address
-        lower = (A >> self.block_offset_bits) << self.block_offset_bits
+        lower = (address >> self.block_offset_bits) << self.block_offset_bits
         upper = lower | (2 ** self.block_offset_bits) - 1
 
-        if cache_block:
-            with open(self.file_name, "a") as out:  
-                out.write(f"read hit [addr={A} index={index} block_index={block_index} tag={tag}: word={A} ({lower} - {upper})]\n")
+        if word is None:
+            word = address
 
-            
+        if cache_block:
+            hit = True
+
             # assess which one is accessed least recent
             lru_order.remove(block_index)
             lru_order.append(block_index)
         else:
-            
             # read miss, and still have space in a set
-            if len(lru_order) != self.num_blocks_per_set:
-                with open(self.file_name, "a") as out:  
-                    out.write(f"read miss [addr={A} index={index} block_index={len(lru_order)} tag={tag}: word={A} ({lower} - {upper})]\n")
-                block_index = len(lru_order)
+            if lru_order.count(-1) > 0:
+                block_index = self.associativity - lru_order.count(-1)
+                lru_order.popleft()
 
-            # read miss, and do not have space in a set
-            elif len(lru_order) == self.num_blocks_per_set:
-
-                block_index = lru_order.popleft()
-                with open(self.file_name, "a") as out:  
-                    out.write(f"read miss + replace [addr={A} index={index} tag={tag}: word={A} ({lower} - {upper})]\n")
-                    out.write(f"evict tag {tag} in block_index {block_index}\n")
-                    out.write(f"read in ({lower} - {upper})\n")
+                miss_have_space = True
                 
+            # read miss, and do not have space in a set
+            elif lru_order.count(-1) == 0:
+                block_index = lru_order.popleft()
+                miss_no_space = True
             self.cache[index][block_index].block = bytearray(self.memory[lower: upper + 1])
             self.cache[index][block_index].tag = tag
+            self.cache[index][block_index].dirty_flag = True
+            self.cache[index][block_index].valid_flag = True
+
             cache_block = self.cache[index][block_index]
 
             # add it in queue
             lru_order.append(block_index)
-            
+
         # take chunk of 4 bytes
         word_start = block_offset 
         word_data = cache_block.block[word_start : word_start + self.word_bytes]
+        cache_block.dirty_flag = False
 
-        # calculate word
-        word = 0
-        for i in range(self.word_bytes):
-            word += word_data[i] * (self.alignment ** i)
 
-        return word
+
+        if access_type == AccessType.READ:
+            # calculate word
+            word = 0
+            for i in range(self.word_bytes):
+                word += word_data[i] * (self.alignment ** i)
+                  
+        elif access_type == AccessType.WRITE:
+            for i in range(self.word_bytes - 1, -1, -1):
+                word_data[i] = word // (self.alignment ** i)
+                word %= self.alignment ** i
+
+            memory_address = (tag << (self.index_bits + self.block_offset_bits)) | (index << self.block_offset_bits) | block_offset
+            for i in range(self.word_bytes):
+                self.memory[memory_address + i] = word_data[i]
+
+        if hit:
+            with open(self.file_name, "a") as out:  
+                out.write(f"{access_type.value} hit [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
+        elif miss_have_space:
+            with open(self.file_name, "a") as out:  
+                out.write(f"{access_type.value} miss [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
+        elif miss_no_space:
+            with open(self.file_name, "a") as out:  
+                out.write(f"{access_type.value} miss + replace [addr={address} index={index} tag={tag}: word={word} ({lower} - {upper})]\n")
+                out.write(f"evict tag {self.cache[index][block_index].tag} in block_index {block_index}\n")
+                out.write(f"{access_type.value} in ({lower} - {upper})\n")
+        
+        with open(self.file_name, "a") as out:
+            out.write("[ ")
+            for item in lru_order:
+                out.write(f"{self.cache[index][item].tag} ")
+            out.write("]\n")
+
+        if access_type == AccessType.READ:
+            return word  
+        
+    def read_word(self, A):
+        return self.access_memory(A, None, access_type=AccessType.READ)
+    def write_word(self, A, word):
+        self.access_memory(A, word, access_type=AccessType.WRITE)
     def print_result(self, val):
+        num_blocks = (self.cache_size // self.block_size)
         with open(self.file_name, "a") as out:  
-            out.write(f"=> address = {val} <{bin(val)[2:].zfill(NUM_BLOCKS)}>; word = {val}\n")
+            out.write(f"address = {val} <{bin(val)[2:].zfill(num_blocks)}>; word = {val}\n\n")
 
-cache = DMCache()
-
-addresses = [0,0, 60, 64, 1000, 1028, 12920, 12924, 12928]
-address_index = 0
-while  address_index < len(addresses):
-    val = cache.read_word(addresses[address_index])
-    cache.print_result(val)
-    address_index += 1
