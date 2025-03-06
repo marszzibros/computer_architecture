@@ -31,7 +31,8 @@ class Cache:
                  address_size = 16, 
                  mode = "wt", 
                  file_name = "part-one-test.out",
-                 use_memory = True):
+                 use_memory = True,
+                 debug = False):
         self.file_name = file_name
         self.memory = np.zeros(mem_size, dtype=np.uint8)
         self.address_size = address_size
@@ -44,6 +45,8 @@ class Cache:
         self.read_hits = 0
         self.writes = 0
         self.write_hits = 0  
+        self.mem_size = mem_size
+        self.debug = debug
 
         # define m
         m = mem_size / 4 - 1
@@ -93,10 +96,15 @@ class Cache:
                 out.write("-----------------------------------------\n\n")         
 
     def decode_address(self, A):
-        block_offset = A & ((1 << self.block_offset_bits) - 1)
-        index = (A >> self.block_offset_bits) & ((1 << self.index_bits) - 1)
-        tag = A >> (self.block_offset_bits + self.index_bits)
+        tag = A >> (self.index_bits + self.block_offset_bits)
+
+        # index is the set number
+        index = (A // self.block_size) & (self.num_sets - 1)
+        # offset in block is lowest bits
+        block_offset = A & (self.block_size - 1)
+
         return [tag, index, block_offset]
+
     
     def access_memory(self, address, word, access_type):
 
@@ -105,148 +113,158 @@ class Cache:
         miss_no_space = False
 
         tag, index, block_offset = self.decode_address(address)
+        if block_offset % 4 == 0 and address >= 0 and (not self.use_memory or address < self.mem_size) :
 
-        # collect cache
-        cache_set = self.cache[index]
-        lru_order = self.lru[index]
-        lru_tag_q = self.lru_tag[index]
+            # collect cache
+            cache_set = self.cache[index]
+            lru_order = self.lru[index]
+            lru_tag_q = self.lru_tag[index]
 
-        block_index = -1
-        cache_block = None
+            block_index = -1
+            cache_block = None
 
-        write_back = False
+            write_back = False
 
-        for i, block in enumerate(cache_set):
-            if block.tag == tag:
-                cache_block = block
-                block_index = i 
-                break
-        
-        # Calculating upper and lower bound of the address
-        lower = (address >> self.block_offset_bits) << self.block_offset_bits
-        upper = lower | (2 ** self.block_offset_bits) - 1
-
-        if word is None:
-            word = address
-
-        if cache_block:
-            hit = True
-
-            # assess which one is accessed least recent
-            lru_order.remove(block_index)
-            lru_order.append(block_index)
-
-            lru_tag_q.remove(tag)
-            lru_tag_q.append(tag)            
-        else:
-            # read miss, and still have space in a set
-            if lru_order.count(-1) > 0:
-                block_index = self.associativity - lru_order.count(-1)
-                lru_order.popleft()
-                lru_tag_q.popleft()
-
-                miss_have_space = True
-                
-            # read miss, and do not have space in a set
-            elif lru_order.count(-1) == 0:
-                block_index = lru_order.popleft()
-                prv_tag = lru_tag_q.popleft()
-                miss_no_space = True
-                
-
-                evicted_block = self.cache[index][block_index]
-
-                if evicted_block.dirty_flag and self.mode == "wb":
-                    evicted_address = (prv_tag << (self.index_bits + self.block_offset_bits)) | (index << self.block_offset_bits)
-                    
-                    lower_evi = evicted_address
-                    upper_evi = lower_evi | (2 ** self.block_offset_bits) - 1
-                    if self.use_memory:
-                        self.memory[lower_evi: upper_evi + 1] = evicted_block.block 
-
-                    write_back = True
-
-            if self.use_memory:
-                self.cache[index][block_index].block = bytearray(self.memory[lower: upper + 1])
-            else:
-                self.cache[index][block_index].block = bytearray(self.block_size)
-            self.cache[index][block_index].tag = tag
-            self.cache[index][block_index].valid_flag = True
-
-            cache_block = self.cache[index][block_index]
-
-            # add it in queue
-            lru_order.append(block_index)
-            lru_tag_q.append(tag)
-
-        # take chunk of 4 bytes
-        word_data = cache_block.block[block_offset : block_offset + self.word_bytes]
-
-        if access_type == AccessType.READ:
-            self.reads += 1
-            if hit:
-                self.read_hits += 1
-        else:  # WRITE
-            self.writes += 1
-            if hit:
-                self.write_hits += 1
-
-
-        if access_type == AccessType.READ:
-            # calculate word
-            word = 0
-            if self.use_memory:
-                for i in range(self.word_bytes):
-                    word += word_data[i] * (self.alignment ** i)
-                  
-        elif access_type == AccessType.WRITE:
+            for i, block in enumerate(cache_set):
+                if block.tag == tag:
+                    cache_block = block
+                    block_index = i 
+                    break
             
+            # Calculating upper and lower bound of the address
+            lower = (address >> self.block_offset_bits) << self.block_offset_bits
+            upper = lower | (2 ** self.block_offset_bits) - 1
 
-            if self.mode == "wt":
-                word_temp = word
-                for i in range(self.word_bytes - 1, -1, -1):
-                    cache_block.block[block_offset + i] = word_temp // (self.alignment ** i)
-                    word_temp %= self.alignment ** i
+            if word is None:
+                word = address
+
+            if cache_block:
+                hit = True
+
+                # assess which one is accessed least recent
+                lru_order.remove(block_index)
+                lru_order.append(block_index)
+
+                lru_tag_q.remove(tag)
+                lru_tag_q.append(tag)            
+            else:
+                # read miss, and still have space in a set
+                if lru_order.count(-1) > 0:
+                    block_index = self.associativity - lru_order.count(-1)
+                    lru_order.popleft()
+                    lru_tag_q.popleft()
+
+                    miss_have_space = True
+                    
+                # read miss, and do not have space in a set
+                elif lru_order.count(-1) == 0:
+                    block_index = lru_order.popleft()
+                    prv_tag = lru_tag_q.popleft()
+                    miss_no_space = True
+                    
+
+                    evicted_block = self.cache[index][block_index]
+
+                    if evicted_block.dirty_flag and self.mode == "wb":
+                        evicted_address = (prv_tag << (self.index_bits + self.block_offset_bits)) | (index << self.block_offset_bits)
+                        
+                        lower_evi = evicted_address
+                        upper_evi = lower_evi | (2 ** self.block_offset_bits) - 1
+                        if self.use_memory:
+                            self.memory[lower_evi: upper_evi + 1] = evicted_block.block 
+
+                        write_back = True
+
+                if self.use_memory:
+                    self.cache[index][block_index].block = bytearray(self.memory[lower: upper + 1])
+                else:
+                    self.cache[index][block_index].block = bytearray(self.block_size)
+                self.cache[index][block_index].tag = tag
+                self.cache[index][block_index].valid_flag = True
+
+                cache_block = self.cache[index][block_index]
+
+                # add it in queue
+                lru_order.append(block_index)
+                lru_tag_q.append(tag)
+
+            # take chunk of 4 bytes
+            word_data = cache_block.block[block_offset : block_offset + self.word_bytes]
+
+            if access_type == AccessType.READ:
+                self.reads += 1
+                if hit:
+                    self.read_hits += 1
+            else:  # WRITE
+                self.writes += 1
+                if hit:
+                    self.write_hits += 1
+
+
+            if access_type == AccessType.READ:
+                # calculate word
+                word = 0
                 if self.use_memory:
                     for i in range(self.word_bytes):
-                        self.memory[address + i] = cache_block.block[block_offset + i]
+                        word += word_data[i] * (self.alignment ** i)
+                    
+            elif access_type == AccessType.WRITE:
+                
 
-            elif self.mode == "wb":
-                word_temp = word
+                if self.mode == "wt":
+                    word_temp = word
+                    for i in range(self.word_bytes - 1, -1, -1):
+                        cache_block.block[block_offset + i] = word_temp // (self.alignment ** i)
+                        word_temp %= self.alignment ** i
+                    if self.use_memory:
+                        for i in range(self.word_bytes):
+                            self.memory[address + i] = cache_block.block[block_offset + i]
 
-                for i in range(self.word_bytes - 1, -1, -1):
-                    cache_block.block[block_offset + i] = word_temp // (self.alignment ** i)
-                    word_temp %= self.alignment ** i
+                elif self.mode == "wb":
+                    word_temp = word
 
-                cache_block.dirty_flag = True
-        if self.use_memory:
-            if hit:
-                with open(self.file_name, "a") as out:  
-                    out.write(f"{access_type.value} hit [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
-            elif miss_have_space:
-                with open(self.file_name, "a") as out:  
-                    out.write(f"{access_type.value} miss [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
-            elif miss_no_space:
-                with open(self.file_name, "a") as out:  
-                    out.write(f"{access_type.value} miss + replace [addr={address} index={index} tag={tag}: word={word} ({lower} - {upper})]\n")
-                    out.write(f"evict tag {prv_tag} in block_index {block_index}\n")
-                    if self.mode == "wb" and write_back:
-                        out.write(f"write back ({lower_evi} - {upper_evi})\n")
-                        write_back = False
-                    out.write(f"read in ({lower} - {upper})\n")
+                    for i in range(self.word_bytes - 1, -1, -1):
+
+                        cache_block.block[block_offset + i] = word_temp // (self.alignment ** i)
+
+                        word_temp %= self.alignment ** i
+
+                    cache_block.dirty_flag = True
+            if self.debug:
+                if hit:
+                    with open(self.file_name, "a") as out:  
+                        out.write(f"{access_type.value} hit [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
+                elif miss_have_space:
+                    with open(self.file_name, "a") as out:  
+                        out.write(f"{access_type.value} miss [addr={address} index={index} block_index={block_index} tag={tag}: word={word} ({lower} - {upper})]\n")
+                elif miss_no_space:
+                    with open(self.file_name, "a") as out:  
+                        out.write(f"{access_type.value} miss + replace [addr={address} index={index} tag={tag}: word={word} ({lower} - {upper})]\n")
+                        out.write(f"evict tag {prv_tag} in block_index {block_index}\n")
+                        if self.mode == "wb" and write_back:
+                            out.write(f"write back ({lower_evi} - {upper_evi})\n")
+                            write_back = False
+                        
+                        out.write(f"read in ({lower} - {upper})\n")
 
 
-            with open(self.file_name, "a") as out:
-                out.write("[ ")
-                for item in lru_tag_q:
-                    out.write(f"{item} ")
-                out.write("]\n")
-                if access_type == AccessType.READ:
-                    out.write(f"address = {address}; word = {word}\n\n")
-                else:
-                    out.write(f"\n")                    
-        if access_type == AccessType.READ:
-            return word  
+                with open(self.file_name, "a") as out:
+                    out.write("[ ")
+                    for item in lru_tag_q:
+                        out.write(f"{item} ")
+                    out.write("]\n")
+                    if access_type == AccessType.READ:
+                        out.write(f"address = {address}; word = {word}\n\n")
+                    else:
+                        out.write(f"\n")
+                    if self.mode == "wt":            
+                        out.write(f"write through: write {word} to mem[{block_offset}]\n")        
+            if access_type == AccessType.READ:
+                return word  
+        else:
+
+            with open("log.txt", "a") as write_file:
+                write_file.write(f"{hex(address)} is not in range!\n")
         
     def read_word(self, A):
         return self.access_memory(A, None, access_type=AccessType.READ)
@@ -280,12 +298,14 @@ class Cache:
             out.write(f"cache associativity = {self.associativity}\n")
             out.write(f"cache tag length = {self.tag_bits}\n")
             out.write(f"{'write back' if self.mode == 'wb' else 'write through'}\n")
-            out.write(f"# reads = {self.reads}\n")
-            read_misses = self.reads - self.read_hits
-            out.write(f"# read misses = {read_misses} ({read_misses/self.reads*100:.2f}%)\n")
-            out.write(f"# read hits = {self.read_hits} ({self.read_hits/self.reads*100:.2f}%)\n")
+            if self.reads > 0:
+                out.write(f"# reads = {self.reads}\n")
+                read_misses = self.reads - self.read_hits
+                out.write(f"# read misses = {read_misses} ({read_misses/self.reads*100:.2f}%)\n")
+                out.write(f"# read hits = {self.read_hits} ({self.read_hits/self.reads*100:.2f}%)\n")
             if self.writes > 0:
                 out.write(f"# writes = {self.writes}\n")
                 write_misses = self.writes - self.write_hits
                 out.write(f"# write misses = {write_misses} ({write_misses/self.writes*100:.2f}%)\n")
                 out.write(f"# write hits = {self.write_hits} ({self.write_hits/self.writes*100:.2f}%)\n")
+    
