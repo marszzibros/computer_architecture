@@ -1,0 +1,19 @@
+cache size = 2048
+cache block size = 64
+cache #sets = 10
+cache associativity = 3
+cache tag length = 39
+write back
+# reads = 833256
+# read misses = 8842 (1.06%)
+# read hits = 824414 (98.94%)
+cache size = 2048
+cache block size = 64
+cache #blocks = 32
+cache #sets = 8
+cache associativity = 4
+cache tag length = 39
+write back
+# reads = 833256
+# read misses = 6475 (0.78%)
+# read hits = 826781 (99.22%)
