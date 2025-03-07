@@ -5,9 +5,9 @@ cache #sets = 512
 cache associativity = 4
 cache tag length = 33
 write through
-# reads = 632769
-# read misses = 1522 (0.24%)
-# read hits = 631247 (99.76%)
+# reads = 835778
+# read misses = 2812 (0.34%)
+# read hits = 832966 (99.66%)
 # writes = 137191
-# write misses = 1397 (1.02%)
-# write hits = 135794 (98.98%)
+# write misses = 1405 (1.02%)
+# write hits = 135786 (98.98%)

@@ -1,13 +1,13 @@
-cache size = 131072
+cache size = 65536
 cache block size = 64
-cache #blocks = 2048
-cache #sets = 512
+cache #blocks = 1024
+cache #sets = 256
 cache associativity = 4
-cache tag length = 33
+cache tag length = 34
 write through
 # reads = 2473413
-# read misses = 39522 (1.60%)
-# read hits = 2433891 (98.40%)
+# read misses = 56501 (2.28%)
+# read hits = 2416912 (97.72%)
 # writes = 1084419
-# write misses = 12162 (1.12%)
-# write hits = 1072257 (98.88%)
+# write misses = 12381 (1.14%)
+# write hits = 1072038 (98.86%)
