@@ -281,7 +281,18 @@ class Cache:
                     if len(parts) == 1: 
                         addr = int(parts[0], 16) 
                         self.read_word(addr)
-                else:
+                elif trace_mode == "d":
+                    if len(parts) == 3:
+                        op = parts[1]
+                        data_addr = int(parts[2], 16)
+                        if op == "R":
+                            self.read_word(data_addr)
+                        elif op == "W":
+                            self.write_word(data_addr, 0) 
+                elif trace_mode == "all":
+                    if len(parts) == 1: 
+                        addr = int(parts[0], 16) 
+                        self.read_word(addr)
                     if len(parts) == 3:
                         op = parts[1]
                         data_addr = int(parts[2], 16)

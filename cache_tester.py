@@ -105,11 +105,21 @@ for mode in ["wb", "wt"]:
                     k = 4,
                     cache_size = 131072,
                     block_size = 64,
-                    address_size = 48, mode ="wb",file_name=f"output/cholesky-data-accesses-{mode}.out",use_memory=False, debug=False)
+                    address_size = 48, mode =mode,file_name=f"output/cholesky-data-accesses-{mode}.out",use_memory=False, debug=False)
 
 
     cache.process_trace(filename = os.path.join(file_dir, "cholesky-full-run.atrace.out"), trace_mode ="d")
 
+    # all mode
+    cache = Cache(mem_size = MEM_SIZE,
+                    word_bytes = WORD_BYTES,
+                    k = 4,
+                    cache_size = 131072,
+                    block_size = 64,
+                    address_size = 48, mode =mode,file_name=f"output/cholesky-all-accesses-{mode}.out",use_memory=False, debug=False)
+
+
+    cache.process_trace(filename = os.path.join(file_dir, "cholesky-full-run.atrace.out"), trace_mode ="d")
 
     # instruction mode
     cache = Cache(mem_size = MEM_SIZE,
@@ -117,7 +127,7 @@ for mode in ["wb", "wt"]:
                     k = 4,
                     cache_size = 131072,
                     block_size = 64,
-                    address_size = 48, mode ="wb",file_name=f"output/curl-instruction-accesses-{mode}.out",use_memory=False, debug=False)
+                    address_size = 48, mode =mode,file_name=f"output/curl-instruction-accesses-{mode}.out",use_memory=False, debug=False)
 
     cache.process_trace(filename = os.path.join(file_dir, "curl-portion.atrace.out"), trace_mode ="i")
 
@@ -127,10 +137,19 @@ for mode in ["wb", "wt"]:
                     k = 4,
                     cache_size = 131072,
                     block_size = 64,
-                    address_size = 48, mode ="wb",file_name=f"output/curl-data-accesses-{mode}.out",use_memory=False, debug=False)
+                    address_size = 48, mode =mode,file_name=f"output/curl-data-accesses-{mode}.out",use_memory=False, debug=False)
 
     cache.process_trace(filename = os.path.join(file_dir, "curl-portion.atrace.out"), trace_mode ="d")
 
+    # all mode
+    cache = Cache(mem_size = MEM_SIZE,
+                    word_bytes = WORD_BYTES,
+                    k = 4,
+                    cache_size = 131072,
+                    block_size = 64,
+                    address_size = 48, mode =mode,file_name=f"output/curl-all-accesses-{mode}.out",use_memory=False, debug=False)
+
+    cache.process_trace(filename = os.path.join(file_dir, "curl-portion.atrace.out"), trace_mode ="all")
 
     # instruction mode
     cache = Cache(mem_size = MEM_SIZE,
@@ -138,7 +157,7 @@ for mode in ["wb", "wt"]:
                     k = 4,
                     cache_size = 131072,
                     block_size = 64,
-                    address_size = 48, mode ="wb",file_name=f"output/rand-instruction-accesses-{mode}.out",use_memory=False, debug=False)
+                    address_size = 48, mode =mode,file_name=f"output/rand-instruction-accesses-{mode}.out",use_memory=False, debug=False)
 
     cache.process_trace(filename = os.path.join(file_dir, "rand-data-accesses.atrace.out"), trace_mode ="i")
 
@@ -148,6 +167,16 @@ for mode in ["wb", "wt"]:
                     k = 4,
                     cache_size = 131072,
                     block_size = 64,
-                    address_size = 48, mode ="wb",file_name=f"output/rand-data-accesses-{mode}.out",use_memory=False, debug=False)
+                    address_size = 48, mode =mode,file_name=f"output/rand-data-accesses-{mode}.out",use_memory=False, debug=False)
 
     cache.process_trace(filename = os.path.join(file_dir, "rand-data-accesses.atrace.out"), trace_mode ="d")
+
+    # all mode
+    cache = Cache(mem_size = MEM_SIZE,
+                    word_bytes = WORD_BYTES,
+                    k = 4,
+                    cache_size = 131072,
+                    block_size = 64,
+                    address_size = 48, mode =mode,file_name=f"output/rand-all-accesses-{mode}.out",use_memory=False, debug=False)
+
+    cache.process_trace(filename = os.path.join(file_dir, "rand-data-accesses.atrace.out"), trace_mode ="all")

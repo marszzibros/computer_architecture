@@ -4,7 +4,7 @@ cache #blocks = 2048
 cache #sets = 512
 cache associativity = 4
 cache tag length = 33
-write through
+write back
 # reads = 632769
 # read misses = 1522 (0.24%)
 # read hits = 631247 (99.76%)
